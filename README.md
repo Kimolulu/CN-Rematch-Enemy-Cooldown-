@@ -25,7 +25,7 @@ WoW 12.1 目标检测修复
 
 为 Rematch 集成了一个**敌方技能条**。
 在宠物对战期间，当前敌方激活宠物的三个技能会以紧凑的图标形式显示，已添加可交互的调整项，位于 Rematch 设置项中。
-<img src="images/setting.png">
+<img src="images/Rematch Setting.png">
 
 功能特性：
 - 显示当前敌方宠物的全部三个技能
