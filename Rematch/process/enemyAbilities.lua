@@ -164,6 +164,22 @@ local function createAbilityButton(parent, index)
     button.MaxCooldownText:SetPoint("TOPRIGHT", 0, 0)
     applyFont(button.MaxCooldownText, db.cooldownFontObject, db.cooldownFontSize)
 
+    -- Blizzard-native pet battle attribute relationship indicators.
+    -- Strong and Weak are mutually exclusive and appear only when the
+    -- ability's pet type has a non-neutral modifier against the active pet.
+    button.StrongIcon = button:CreateTexture(nil, "OVERLAY", nil, 7)
+    button.StrongIcon:SetSize(16, 16)
+    button.StrongIcon:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, -1)
+    button.WeakIcon = button:CreateTexture(nil, "OVERLAY", nil, 7)
+    button.WeakIcon:SetSize(16, 16)
+    button.WeakIcon:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, -1)
+    -- Use the same concrete Blizzard textures Rematch's own ability tooltip uses.
+    -- Do not rely on atlas names here: those atlas names are not present on all clients.
+    button.StrongIcon:SetTexture("Interface\\PetBattles\\BattleBar-AbilityBadge-Strong")
+    button.WeakIcon:SetTexture("Interface\\PetBattles\\BattleBar-AbilityBadge-Weak")
+    button.StrongIcon:Hide()
+    button.WeakIcon:Hide()
+
     styleZZZButton(button)
 
     button:SetScript("OnEnter", function(self)
@@ -323,7 +339,7 @@ updateBar = function()
 
     for slot = 1, 3 do
         local button = abilityButtons[slot]
-        local abilityID, name, icon, baseCooldown, description =
+        local abilityID, name, icon, baseCooldown, description, numTurns, abilityPetType =
             C_PetBattles.GetAbilityInfo(ENEMY, enemyIndex, slot)
 
         if abilityID then
@@ -336,6 +352,25 @@ updateBar = function()
             button.description = description
             button.baseCooldown = baseCooldown or 0
             button.remaining = remaining
+
+            -- Attribute relationship: use Blizzard's combat modifier directly.
+            -- >1 = Strong, <1 = Weak, ==1 = neutral/no icon.
+            local playerIndex = C_PetBattles.GetActivePet(Enum.BattlePetOwner.Ally)
+            local playerPetType = playerIndex and playerIndex > 0
+                and C_PetBattles.GetPetType(Enum.BattlePetOwner.Ally, playerIndex)
+                or nil
+            local attackModifier = abilityPetType and playerPetType
+                and C_PetBattles.GetAttackModifier(abilityPetType, playerPetType)
+                or 1
+
+            button.abilityPetType = abilityPetType
+            button.attackModifier = attackModifier or 1
+            if button.StrongIcon then
+                button.StrongIcon:SetShown((attackModifier or 1) > 1)
+            end
+            if button.WeakIcon then
+                button.WeakIcon:SetShown((attackModifier or 1) < 1)
+            end
 
             setFUIState(button, remaining, baseCooldown or 0)
 
@@ -356,6 +391,12 @@ updateBar = function()
             button:Show()
         else
             button.abilityID = nil
+            if button.StrongIcon then
+                button.StrongIcon:Hide()
+            end
+            if button.WeakIcon then
+                button.WeakIcon:Hide()
+            end
             button:Hide()
         end
     end
