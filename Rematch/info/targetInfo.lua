@@ -185,11 +185,12 @@ function rematch.targetInfo:GetNpcName(npcID,noDisplay)
     end
     if type(npcID)~="number" then
         return L["No Target"]
-    elseif rematch.targetData.targetNames and rematch.targetData.targetNames[npcID] then
-        return rematch.targetData.targetNames[npcID]..subname
-    elseif targetNameCache[npcID] then -- if name cached, return it
+    elseif targetNameCache[npcID] then -- prefer the localized name supplied by the game client
         return targetNameCache[npcID]..subname
     else
+        -- Always try the client first. The tooltip hyperlink resolves the NPC name through the
+        -- current WoW client locale (for example Chinese on a zhCN client and English on enUS).
+        -- targetData.targetNames is only a fallback for clients/NPCs whose name cannot be resolved.
         local tooltip = RematchTooltipScan or CreateFrame("GameTooltip","RematchTooltipScan",nil,"GameTooltipTemplate")
         tooltip:SetOwner(UIParent,"ANCHOR_NONE")
         tooltip:SetHyperlink(format("unit:Creature-0-0-0-0-%d-0000000000",npcID))
@@ -201,6 +202,8 @@ function rematch.targetInfo:GetNpcName(npcID,noDisplay)
                 return name..subname
             end
         end
+        -- The client did not resolve a name yet. Keep retrying first; only use the addon's
+        -- internal English name table as a fallback after the normal cache timeout.
         -- if we reached here, then this npcID is still not cached
         if not targetsToCache[npcID] then
             targetsToCache[npcID] = GetTime()
@@ -211,7 +214,13 @@ function rematch.targetInfo:GetNpcName(npcID,noDisplay)
             end
             return C.CACHE_RETRIEVING
         else -- exceeded retry attempts, cache it as NPC <npcID> and give up trying
-            local name = format(L["%s (npc id %d)"],UNKNOWN,npcID)
+            local name
+            if rematch.targetData.targetNames and rematch.targetData.targetNames[npcID] then
+                -- Secondary fallback only: preserves compatibility when the client has no name data.
+                name = rematch.targetData.targetNames[npcID]
+            else
+                name = format(L["%s (npc id %d)"],UNKNOWN,npcID)
+            end
             targetNameCache[npcID] = name
             targetsToCache[npcID] = nil
             return name..subname
