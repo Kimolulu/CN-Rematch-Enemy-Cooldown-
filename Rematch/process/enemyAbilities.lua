@@ -341,6 +341,10 @@ updateBar = function()
         local button = abilityButtons[slot]
         local abilityID, name, icon, baseCooldown, description, numTurns, abilityPetType =
             C_PetBattles.GetAbilityInfo(ENEMY, enemyIndex, slot)
+        -- GetAbilityInfo's return layout is not the same source we should use for the
+        -- ability hint flag. Resolve noHints by abilityID, matching Rematch's own
+        -- petCard/petInfo logic, so offensive abilities are not accidentally filtered.
+        local _, _, _, _, _, _, _, noHints = C_PetBattles.GetAbilityInfoByID(abilityID)
 
         if abilityID then
             hasAbility = true
@@ -353,23 +357,27 @@ updateBar = function()
             button.baseCooldown = baseCooldown or 0
             button.remaining = remaining
 
-            -- Attribute relationship: use Blizzard's combat modifier directly.
+            -- Attribute relationship: Blizzard marks abilities that should NOT receive
+            -- offense hints (self-heals, armor/buffs and other non-attacking abilities)
+            -- with noHints. Do not run the damage modifier for those abilities.
             -- >1 = Strong, <1 = Weak, ==1 = neutral/no icon.
             local playerIndex = C_PetBattles.GetActivePet(Enum.BattlePetOwner.Ally)
             local playerPetType = playerIndex and playerIndex > 0
                 and C_PetBattles.GetPetType(Enum.BattlePetOwner.Ally, playerIndex)
                 or nil
-            local attackModifier = abilityPetType and playerPetType
+            local canShowAttackHint = not noHints and abilityPetType and playerPetType
+            local attackModifier = canShowAttackHint
                 and C_PetBattles.GetAttackModifier(abilityPetType, playerPetType)
                 or 1
 
             button.abilityPetType = abilityPetType
+            button.noHints = noHints
             button.attackModifier = attackModifier or 1
             if button.StrongIcon then
-                button.StrongIcon:SetShown((attackModifier or 1) > 1)
+                button.StrongIcon:SetShown(canShowAttackHint and (attackModifier or 1) > 1)
             end
             if button.WeakIcon then
-                button.WeakIcon:SetShown((attackModifier or 1) < 1)
+                button.WeakIcon:SetShown(canShowAttackHint and (attackModifier or 1) < 1)
             end
 
             setFUIState(button, remaining, baseCooldown or 0)
